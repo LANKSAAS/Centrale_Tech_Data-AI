@@ -134,7 +134,7 @@ Si vous trouvez des bugs ou souhaitez proposer des améliorations :
 ## 📧 Contact & Support
 
 - **Email** : dany.guimefack@centrale-casablanca.ma
----
+- **Email** : wendenkomarmelariste.yougbare2@centrale-casablanca.ma
 
 ## 📜 Licence
 
