@@ -9,13 +9,11 @@
     "Préparé avec ❤️ par <a href=\"https://linkedin.com/in/dany-anderson-guimefack\">Dany Anderson G.</a> <br>\n",
     "Email📧: dany.guimefack@centrale-casablanca.ma\n",
     "\n",
-    "Dans ce notebook, vous utiliserez les fonctions implémentées dans le notebook précédent pour construire un réseau de neurones profond et l'appliquer à une tâche de **reconnaissance faciale binaire** : *est la personne* (1) vs *n'est pas la personne* (0).\n",
+    "Dans ce notebook, vous utiliserez les fonctions implémentées dans le notebook précédent pour construire un réseau de neurones profond et l'appliquer à la classification d'images de chats.\n",
     "\n",
     "**À la fin de ce workshop, vous serez capable de :**\n",
     "\n",
-    "- Collecter votre propre jeu de données d'images via la webcam ou des photos déjà existantes\n",
-    "- Construire et entraîner un réseau de neurones profond à L couches sur ces images\n",
-    "- L'utiliser pour reconnaître un visage spécifique\n",
+    "- Construire et entraîner un réseau de neurones profond à L couches, et l'appliquer à l'apprentissage supervisé\n",
     "\n",
     "**Note sur l'évaluateur automatique :** Ce notebook contient des cellules évaluées automatiquement. Évitez d'ajouter des `print` supplémentaires, de modifier les paramètres des fonctions, ou d'utiliser des variables globales dans les exercices.\n",
     "\n",
@@ -28,10 +26,7 @@
    "source": [
     "## Table des matières\n",
     "- [1 - Packages](#1)\n",
-    "- [2 - Collecte et chargement des données](#2)\n",
-    " - [2.1 - Option A : capture par webcam](#2-1)\n",
-    " - [2.2 - Option B : photos pré-sauvegardées](#2-2)\n",
-    " - [2.3 - Chargement et prétraitement](#2-3)\n",
+    "- [2 - Chargement et traitement des données](#2)\n",
     "- [3 - Architecture du modèle](#3)\n",
     " - [3.1 - Réseau de neurones à 2 couches](#3-1)\n",
     " - [3.2 - Réseau de neurones profond à L couches](#3-2)\n",
@@ -50,13 +45,6 @@
    "cell_type": "markdown",
    "metadata": {},
    "source": [
-    "> **Note** : ce notebook est une version adaptée du devoir *Cat vs Non-Cat Classification* de la **Deep Learning Specialization** (DeepLearning.ai, Coursera). L'architecture et les fonctions auxiliaires viennent du cours original ; le pipeline de données a été modifié pour traiter une tâche de reconnaissance faciale au lieu de la classification chat / non-chat."
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
     "<a name='1'></a>\n",
     "## 1 - Packages"
    ]
@@ -69,10 +57,9 @@
     "\n",
     "- [numpy](https://www.numpy.org/) est le package fondamental pour le calcul scientifique avec Python.\n",
     "- [matplotlib](http://matplotlib.org) est une bibliothèque pour tracer des graphiques en Python.\n",
-    "- [PIL](http://www.pythonware.com/products/pil/) sert à charger et redimensionner les images.\n",
-    "- [opencv-python (cv2)](https://opencv.org/) capture les images depuis la webcam.\n",
-    "- [ipywidgets](https://ipywidgets.readthedocs.io/) affiche un aperçu en direct de la webcam dans le notebook.\n",
-    "- `dnn_app_utils_v3` fournit les fonctions implémentées dans le notebook précédent (`L_model_forward`, `predict`, etc.).\n",
+    "- [h5py](http://www.h5py.org) est un package courant pour interagir avec des données stockées au format H5.\n",
+    "- [PIL](http://www.pythonware.com/products/pil/) et [scipy](https://www.scipy.org/) sont utilisés pour tester votre modèle avec votre propre image à la fin.\n",
+    "- `dnn_app_utils` fournit les fonctions implémentées dans le notebook précédent.\n",
     "- `np.random.seed(1)` est utilisé pour assurer la reproductibilité des résultats. Ne le modifiez pas."
    ]
   },
@@ -95,15 +82,10 @@
    "outputs": [],
    "source": [
     "import time\n",
-    "import os\n",
-    "import uuid\n",
-    "import threading\n",
     "import numpy as np\n",
+    "import h5py\n",
     "import matplotlib.pyplot as plt\n",
     "import scipy\n",
-    "import cv2\n",
-    "import ipywidgets as widgets\n",
-    "from IPython.display import display as ipy_display\n",
     "from PIL import Image\n",
     "from scipy import ndimage\n",
     "from dnn_app_utils_v3 import *\n",
@@ -125,37 +107,16 @@
    "metadata": {},
    "source": [
     "<a name='2'></a>\n",
-    "## 2 - Collecte et chargement des données\n",
+    "## 2 - Chargement et traitement des données\n",
     "\n",
-    "Au lieu d'un jeu de données pré-préparé, vous allez **construire le vôtre**. Le réseau apprendra une classification binaire :\n",
+    "Vous utiliserez le même jeu de données \"Chat / non-Chat\" que dans le notebook précédent (Régression Logistique). Le modèle construit précédemment atteignait 70 % de précision sur le jeu de test. Votre nouveau modèle devrait faire mieux !\n",
     "\n",
-    "- **classe 1 (`positive`)** : photos du visage cible (vous, ou la personne à reconnaître)\n",
-    "- **classe 0 (`negative`)** : photos d'autres personnes ou des arrière-plans variés\n",
+    "**Énoncé du problème** : Vous disposez d'un jeu de données (\"data.h5\") contenant :\n",
+    " - un ensemble d'entraînement de `m_train` images étiquetées chat (1) ou non-chat (0)\n",
+    " - un ensemble de test de `m_test` images étiquetées chat et non-chat\n",
+    " - chaque image est de forme (num_px, num_px, 3) où 3 correspond aux 3 canaux (RGB).\n",
     "\n",
-    "Les images sont stockées dans deux dossiers :\n",
-    "\n",
-    "```\n",
-    "data/\n",
-    "  positive/   ← classe 1\n",
-    "  negative/   ← classe 0\n",
-    "```\n",
-    "\n",
-    "**Recommandations :**\n",
-    "- Au moins 100–200 images par classe pour un résultat correct.\n",
-    "- Variez l'éclairage, l'angle, l'expression et l'arrière-plan.\n",
-    "- Gardez les images de taille raisonnable ; elles seront automatiquement redimensionnées en 64×64.\n",
-    "\n",
-    "Vous avez deux moyens de remplir ces dossiers — choisissez l'un *ou* l'autre."
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "<a name='2-1'></a>\n",
-    "### 2.1 - Option A : capture par webcam\n",
-    "\n",
-    "Le bloc ci-dessous prépare deux dossiers `data/positive/` et `data/negative/`. Si vous travaillez sans webcam, sautez à la **section 2.2**."
+    "Chargez les données en exécutant la cellule ci-dessous."
    ]
   },
   {
@@ -164,222 +125,7 @@
    "metadata": {},
    "outputs": [],
    "source": [
-    "RAW_PATH = 'data'\n",
-    "CLASSES = ['positive', 'negative']\n",
-    "NUM_IMAGES = 60  # cible par classe\n",
-    "\n",
-    "for cls in CLASSES:\n",
-    "    os.makedirs(os.path.join(RAW_PATH, cls), exist_ok=True)\n",
-    "\n",
-    "print(\"Dossiers prêts :\", os.listdir(RAW_PATH))"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "La fonction `capturer_images` ouvre la webcam dans le notebook et affiche un aperçu en direct accompagné de deux boutons :\n",
-    "\n",
-    "- **📸 Sauvegarder** enregistre le cadre courant dans `data/<classe>/`.\n",
-    "- **❌ Quitter** ferme la caméra.\n",
-    "\n",
-    "Adaptez `camera_index` selon votre matériel (`0` = webcam intégrée, parfois `1` ou `2` pour une caméra externe)."
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "def capturer_images(cls, camera_index=0):\n",
-    "    \"\"\"Capture des images depuis la webcam et les sauvegarde dans data/<cls>/.\"\"\"\n",
-    "    cap = cv2.VideoCapture(camera_index)\n",
-    "    count = 0\n",
-    "    running = True\n",
-    "    last_frame = None\n",
-    "\n",
-    "    img_widget = widgets.Image(format='jpeg', width=480)\n",
-    "    save_btn   = widgets.Button(description='📸 Sauvegarder', button_style='success')\n",
-    "    quit_btn   = widgets.Button(description='❌ Quitter',     button_style='danger')\n",
-    "    status     = widgets.Label(value=f\"0/{NUM_IMAGES} sauvegardées — classe : {cls}\")\n",
-    "\n",
-    "    def on_save(b):\n",
-    "        nonlocal count, last_frame\n",
-    "        if last_frame is not None:\n",
-    "            path = os.path.join(RAW_PATH, cls, f\"{cls}_{uuid.uuid1()}.jpg\")\n",
-    "            cv2.imwrite(path, last_frame.copy())\n",
-    "            count += 1\n",
-    "            status.value = f\"{count}/{NUM_IMAGES} sauvegardées — classe : {cls}\"\n",
-    "            if count >= NUM_IMAGES:\n",
-    "                on_quit(None)\n",
-    "\n",
-    "    def on_quit(b):\n",
-    "        nonlocal running\n",
-    "        running = False\n",
-    "\n",
-    "    save_btn.on_click(on_save)\n",
-    "    quit_btn.on_click(on_quit)\n",
-    "\n",
-    "    ipy_display(widgets.VBox([img_widget, widgets.HBox([save_btn, quit_btn]), status]))\n",
-    "\n",
-    "    def apercu():\n",
-    "        nonlocal last_frame\n",
-    "        while running and cap.isOpened():\n",
-    "            ret, frame = cap.read()\n",
-    "            if not ret:\n",
-    "                break\n",
-    "            last_frame = frame\n",
-    "            annotated = frame.copy()\n",
-    "            cv2.putText(annotated, f\"{cls}  {count}/{NUM_IMAGES}\",\n",
-    "                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)\n",
-    "            _, buf = cv2.imencode('.jpg', annotated)\n",
-    "            img_widget.value = buf.tobytes()\n",
-    "            time.sleep(0.05)\n",
-    "\n",
-    "        cap.release()\n",
-    "        status.value = f\"✅ Terminé — {count}/{NUM_IMAGES} sauvegardées pour '{cls}'\"\n",
-    "\n",
-    "    thread = threading.Thread(target=apercu, daemon=True)\n",
-    "    thread.start()\n",
-    "    return thread"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "**Capture des images positives** — placez-vous face à la caméra. Variez l'angle, l'expression, l'éclairage."
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "t = capturer_images('positive')"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "t.join()  # attendre la fin avant de passer à la classe suivante"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "**Capture des images négatives** — demandez à quelqu'un d'autre de se placer devant la caméra, ou filmez des arrière-plans variés."
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "t = capturer_images('negative')"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "t.join()"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "<a name='2-2'></a>\n",
-    "### 2.2 - Option B : photos pré-sauvegardées\n",
-    "\n",
-    "Si vous préférez ne pas utiliser la webcam, copiez simplement vos photos dans les dossiers correspondants :\n",
-    "\n",
-    "```\n",
-    "data/\n",
-    "  positive/   ← vos photos du visage cible (.jpg, .jpeg ou .png)\n",
-    "  negative/   ← photos d'autres personnes ou d'arrière-plans\n",
-    "```\n",
-    "\n",
-    "Quelques conseils :\n",
-    "- Recadrez les images autour du visage (à la main, ou avec un détecteur OpenCV / un outil en ligne).\n",
-    "- Les images n'ont pas besoin d'être carrées : `load_face_data` les redimensionne en 64×64.\n",
-    "- Visez 100–200 images par classe minimum.\n",
-    "- Mélangez les conditions (lumière, fond, expression) pour aider la généralisation."
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "<a name='2-3'></a>\n",
-    "### 2.3 - Chargement et prétraitement\n",
-    "\n",
-    "La fonction `load_face_data` parcourt les deux dossiers, redimensionne chaque image en 64×64, mélange l'ensemble et le sépare en train / test."
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "def load_face_data(pos_dir='data/positive', neg_dir='data/negative', img_size=64, test_split=0.2, seed=1):\n",
-    "    \"\"\"Charge un dataset binaire (positive=1, negative=0) depuis deux dossiers.\"\"\"\n",
-    "    def load_dir(path, label):\n",
-    "        X, Y = [], []\n",
-    "        if not os.path.isdir(path):\n",
-    "            raise FileNotFoundError(f\"Dossier introuvable : {path}\")\n",
-    "        for f in sorted(os.listdir(path)):\n",
-    "            if not f.lower().endswith(('.jpg', '.jpeg', '.png')):\n",
-    "                continue\n",
-    "            img = Image.open(os.path.join(path, f)).convert('RGB')\n",
-    "            img = img.resize((img_size, img_size))\n",
-    "            X.append(np.array(img))\n",
-    "            Y.append(label)\n",
-    "        return X, Y\n",
-    "\n",
-    "    X1, Y1 = load_dir(pos_dir, 1)\n",
-    "    X0, Y0 = load_dir(neg_dir, 0)\n",
-    "    if len(X1) == 0 or len(X0) == 0:\n",
-    "        raise ValueError(\"Au moins un des deux dossiers est vide. Collectez des images avant d'entraîner.\")\n",
-    "\n",
-    "    X = np.array(X1 + X0)\n",
-    "    Y = np.array(Y1 + Y0)\n",
-    "\n",
-    "    rng = np.random.default_rng(seed)\n",
-    "    idx = rng.permutation(len(Y))\n",
-    "    X, Y = X[idx], Y[idx]\n",
-    "\n",
-    "    split = int(len(Y) * (1 - test_split))\n",
-    "    train_x_orig = X[:split]\n",
-    "    train_y      = Y[:split].reshape(1, -1)\n",
-    "    test_x_orig  = X[split:]\n",
-    "    test_y       = Y[split:].reshape(1, -1)\n",
-    "    return train_x_orig, train_y, test_x_orig, test_y"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "train_x_orig, train_y, test_x_orig, test_y = load_face_data(\n",
-    "    pos_dir='data/positive',\n",
-    "    neg_dir='data/negative',\n",
-    "    img_size=64,\n",
-    ")\n",
-    "classes = np.array([b'non-personne', b'personne'])  # pour compatibilité avec les utilitaires existants"
+    "train_x_orig, train_y, test_x_orig, test_y, classes = load_data()"
    ]
   },
   {
@@ -396,9 +142,9 @@
    "outputs": [],
    "source": [
     "# Exemple d'image\n",
-    "index = 0\n",
+    "index = 11\n",
     "plt.imshow(train_x_orig[index])\n",
-    "print(\"y = \" + str(train_y[0, index]) + \". C'est une image \" + classes[train_y[0, index]].decode(\"utf-8\") + \".\")\n",
+    "print (\"\" + str(train_y[0,index]) + \". C'est une image \" + classes[train_y[0,index]].decode(\"utf-8\") + \".\")\n",
     "plt.show()"
    ]
   },
@@ -414,13 +160,13 @@
     "num_px = train_x_orig.shape[1]\n",
     "m_test = test_x_orig.shape[0]\n",
     "\n",
-    "print(\"Nombre d'exemples d'entraînement : \" + str(m_train))\n",
-    "print(\"Nombre d'exemples de test : \" + str(m_test))\n",
-    "print(\"Chaque image est de taille : (\" + str(num_px) + \", \" + str(num_px) + \", 3)\")\n",
-    "print(\"train_x_orig shape: \" + str(train_x_orig.shape))\n",
-    "print(\"train_y shape: \" + str(train_y.shape))\n",
-    "print(\"test_x_orig shape: \" + str(test_x_orig.shape))\n",
-    "print(\"test_y shape: \" + str(test_y.shape))"
+    "print (\"Nombre d'exemples d'entraînement : \" + str(m_train))\n",
+    "print (\"Nombre d'exemples de test : \" + str(m_test))\n",
+    "print (\"Chaque image est de taille : (\" + str(num_px) + \", \" + str(num_px) + \", 3)\")\n",
+    "print (\"train_x_orig shape: \" + str(train_x_orig.shape))\n",
+    "print (\"train_y shape: \" + str(train_y.shape))\n",
+    "print (\"test_x_orig shape: \" + str(test_x_orig.shape))\n",
+    "print (\"test_y shape: \" + str(test_y.shape))"
    ]
   },
   {
@@ -475,7 +221,7 @@
     "<a name='3-1'></a>\n",
     "### 3.1 - Réseau de neurones à 2 couches\n",
     "\n",
-    "Maintenant que vous êtes familiarisé avec le jeu de données, il est temps de construire un réseau de neurones profond pour distinguer les visages cibles des autres visages.\n",
+    "Maintenant que vous êtes familiarisé avec le jeu de données, il est temps de construire un réseau de neurones profond pour distinguer les images de chats des images sans chat.\n",
     "\n",
     "Vous allez construire deux modèles différents :\n",
     "\n",
@@ -491,7 +237,7 @@
     "<u><b>Architecture détaillée de la Figure 2</b></u> :\n",
     "- L'entrée est une image (64,64,3) aplatie en un vecteur de taille $(12288,1)$. - Le vecteur correspondant $[x_0,x_1,...,x_{12287}]^T$ est multiplié par la matrice de poids $W^{[1]}$ de taille $(n^{[1]}, 12288)$.\n",
     "- Ensuite, on ajoute un biais et on applique ReLU pour obtenir le vecteur $[a_0^{[1]}, a_1^{[1]},..., a_{n^{[1]}-1}^{[1]}]^T$.\n",
-    "- On multiplie le vecteur résultant par $W^{[2]}$ et on ajoute le biais. - Enfin, on applique la sigmoïde au résultat. Si le résultat est supérieur à 0,5, classez-le comme la personne.\n",
+    "- On multiplie le vecteur résultant par $W^{[2]}$ et on ajoute le biais. - Enfin, on applique la sigmoïde au résultat. Si le résultat est supérieur à 0,5, classez-le comme un chat.\n",
     "\n",
     "<a name='3-2'></a>\n",
     "### 3.2 - Réseau de neurones profond à L couches\n",
@@ -505,7 +251,7 @@
     "- L'entrée est une image (64,64,3) aplatie en un vecteur de taille (12288,1).\n",
     "- Le vecteur correspondant $[x_0,x_1,...,x_{12287}]^T$ est multiplié par la matrice de poids $W^{[1]}$, puis on ajoute le biais $b^{[1]}$. Le résultat est appelé l'unité linéaire.\n",
     "- Ensuite, on applique ReLU à l'unité linéaire. Ce processus peut être répété plusieurs fois pour chaque $(W^{[l]}, b^{[l]})$ selon l'architecture du modèle.\n",
-    "- Enfin, on applique la sigmoïde à la dernière unité linéaire. Si le résultat est supérieur à 0,5, on classifie l'image comme la personne.\n",
+    "- Enfin, on applique la sigmoïde à la dernière unité linéaire. Si le résultat est supérieur à 0,5, on classifie l'image comme un chat.\n",
     "\n",
     "<a name='3-3'></a>\n",
     "### 3.3 - Méthodologie générale\n",
@@ -592,7 +338,7 @@
     " Arguments :\n",
     " \n",
     " X -- données d'entrée, de forme (n_x, nombre d'exemples)\n",
-    " Y -- vecteur d'étiquettes réelles (contenant 1 si la personne, 0 sinon), de forme (1, nombre d'exemples)\n",
+    " Y -- vecteur d'étiquettes réelles (contenant 1 si chat, 0 sinon), de forme (1, nombre d'exemples)\n",
     " layers_dims -- dimensions des couches (n_x, n_h, n_y)\n",
     " num_iterations -- nombre d'itérations de la boucle d'optimisation\n",
     " learning_rate -- taux d'apprentissage de la règle de mise à jour par descente de gradient\n",
@@ -885,7 +631,7 @@
     " \n",
     " Arguments :\n",
     " X -- données d'entrée, de forme (n_x, nombre d'exemples)\n",
-    " Y -- vecteur d'étiquettes réelles (contenant 1 si la personne, 0 sinon), de forme (1, nombre d'exemples)\n",
+    " Y -- vecteur d'étiquettes réelles (contenant 1 si chat, 0 sinon), de forme (1, nombre d'exemples)\n",
     " layers_dims -- liste contenant la taille d'entrée et la taille de chaque couche, de longueur (nombre de couches + 1).\n",
     " learning_rate -- taux d'apprentissage de la règle de mise à jour par descente de gradient\n",
     " num_iterations -- nombre d'itérations de la boucle d'optimisation\n",
@@ -1089,11 +835,12 @@
    "metadata": {},
    "source": [
     "**Quelques types d'images que le modèle a tendance à mal classer :**\n",
-    "- Visage dans une pose inhabituelle (de profil, partiellement masqué)\n",
-    "- Visage sur un fond très différent de ceux du jeu d'entraînement\n",
-    "- Conditions d'éclairage inhabituelles\n",
-    "- Angle ou distance par rapport à la caméra non représentés dans les données\n",
-    "- Variation d'échelle (visage très grand ou très petit dans l'image)"
+    "- Corps de chat dans une position inhabituelle\n",
+    "- Chat sur un fond de couleur similaire\n",
+    "- Couleur ou espèce de chat inhabituelle\n",
+    "- Angle de la caméra\n",
+    "- Luminosité de l'image\n",
+    "- Variation d'échelle (chat très grand ou très petit dans l'image)"
    ]
   },
   {
@@ -1102,7 +849,7 @@
    "source": [
     "### Félicitations !\n",
     "\n",
-    "Vous venez de construire et d'entraîner un réseau de neurones profond à L couches, et de l'appliquer pour reconnaître un visage spécifique.\n",
+    "Vous venez de construire et d'entraîner un réseau de neurones profond à L couches, et de l'appliquer pour distinguer les chats des non-chats.\n",
     "\n",
     "Si vous le souhaitez, vous pouvez tester votre modèle avec votre propre image dans l'exercice optionnel ci-dessous."
    ]
@@ -1114,11 +861,11 @@
     "<a name='7'></a>\n",
     "## 7 - Testez avec votre propre image (exercice optionnel)\n",
     "\n",
-    "Pour tester le modèle avec une image qui ne fait pas partie du jeu d'entraînement :\n",
+    "Pour tester le modèle avec votre propre image, suivez ces étapes :\n",
     "\n",
-    "1. Ajoutez votre image dans le dossier `images/` de ce répertoire (créez-le si besoin).\n",
+    "1. Ajoutez votre image dans le dossier `images/` de ce répertoire.\n",
     "2. Modifiez le nom de l'image dans le code ci-dessous.\n",
-    "3. Exécutez la cellule et vérifiez la prédiction (1 = c'est la personne, 0 = ce n'est pas la personne)."
+    "3. Exécutez la cellule et vérifiez si l'algorithme a raison (1 = chat, 0 = non-chat) !"
    ]
   },
   {
@@ -1128,21 +875,20 @@
    "outputs": [],
    "source": [
     "## DÉBUT DU CODE ##\n",
-    "my_image = \"my_image.jpg\"   # nom de votre fichier dans le dossier images/\n",
-    "my_label_y = [1]             # 1 si c'est la personne, 0 sinon\n",
+    "my_image = \"my_image.jpg\" \n",
+    "# modifiez avec le nom de votre fichier image\n",
+    "my_label_y = [1] # la vraie classe de votre image (1 -> chat, 0 -> non-chat)\n",
     "## FIN DU CODE ##\n",
-    "\n",
     "fname = \"images/\" + my_image\n",
-    "image = np.array(Image.open(fname).convert('RGB').resize((num_px, num_px)))\n",
+    "image = np.array(Image.open(fname).resize((num_px, num_px)))\n",
     "plt.imshow(image)\n",
-    "plt.axis('off')\n",
-    "plt.show()\n",
+    "image = image / 255.\n",
+    "image = image.reshape((1, num_px * num_px * 3)).T\n",
     "\n",
-    "x = image.reshape((1, num_px * num_px * 3)).T / 255.\n",
-    "my_predicted_image = predict(x, my_label_y, parameters)\n",
-    "pred = int(np.squeeze(my_predicted_image))\n",
-    "label = \"c'est la personne\" if pred == 1 else \"ce n'est pas la personne\"\n",
-    "print(f\"y = {pred} — votre modèle prédit que {label}.\")"
+    "my_predicted_image = predict(image, my_label_y, parameters)\n",
+    "\n",
+    "\n",
+    "print (\"y = \" + str(np.squeeze(my_predicted_image)) + \", votre modèle à L couches prédit une image \\\"\" + classes[int(np.squeeze(my_predicted_image)),].decode(\"utf-8\") +  \"\\\".\")"
    ]
   },
   {
@@ -1152,8 +898,7 @@
     "**Références** :\n",
     "\n",
     "- Pour le rechargement automatique des modules externes : http://stackoverflow.com/questions/1907993/autoreload-of-modules-in-ipython\n",
-    "- *Deep Learning Specialization* — DeepLearning.ai sur Coursera (devoir original *Cat vs Non-Cat Classification* dont ce notebook est une adaptation)\n",
-    "- Le bloc de capture webcam est inspiré du notebook `Reconnaissance_Faciale_Correction.ipynb` du Workshop 5."
+    "- Deep Learning Specialization DeepLearning.ai sur Coursera"
    ]
   },
   {
