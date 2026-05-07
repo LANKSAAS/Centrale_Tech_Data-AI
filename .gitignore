@@ -15,7 +15,8 @@
 /Workshop_6/use_network/Deep Neural Network - Application.ipynb
 /Workshop_6/use_network/correction.ipynb
 /Workshop_6/facial_recog.md
-
+/Workshop_6/use_network/Application - Réseau Profond.ipynb.bak
+/Workshop_6/use_network/data/
 
 /Workshop_7
 /Workshop_8
@@ -39,3 +40,9 @@ Thumbs.db
 
 # Others
 inspiration.txt
+
+# Claude Code local config
+.claude/
+
+# Backup files
+*.bak
