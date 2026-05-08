@@ -2,4 +2,4 @@ flask
 gunicorn
 opencv-python-headless
 numpy
-ultralytics
+ultralytics==8.2.103
