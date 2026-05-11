@@ -1,26 +1,26 @@
-FastAPI local assistant
+Assistant local FastAPI
 
-Prerequisites
+Prérequis
 - Python 3.10+
-- pip install fastapi uvicorn transformers torch
+- `pip install fastapi uvicorn transformers torch`
 
-Quick start
-1. From repository root run:
+Démarrage rapide
+1. Depuis la racine du dépôt, lancez :
 ```bash
-pip install -r requirements.txt  # optional if you create one
+pip install -r requirements.txt  # optionnel si vous créez ce fichier
 uvicorn Workshop_7.fastapi_app.main:app --reload --host 0.0.0.0 --port 8000
 ```
-2. Open http://localhost:8000 in your browser.
+2. Ouvrez http://localhost:8000 dans votre navigateur.
 
-App structure
-- `main.py`: FastAPI app, mounts `/static`, renders templates, loads the model from `assets/gemma-3-1b-it`.
-- `templates/index.html`: single-page form + result display.
-- `static/style.css`: styles copied from previous app.
-- `assets/`: expected model directory (not committed here).
+Structure de l'application
+- `main.py` : application FastAPI, montage de `/static`, rendu des templates et chargement du modèle depuis `assets/gemma-3-1b-it`.
+- `templates/index.html` : page unique avec formulaire et affichage du résultat.
+- `static/style.css` : styles copiés depuis l'ancienne application.
+- `assets/` : dossier attendu pour le modèle, non versionné ici.
 
-Notes
-- The app detects CUDA and sets device automatically; change `device` in `main.py` to force CPU/GPU.
-- If the model directory is large, keep it out of Git and point `MODEL_PATH` to an external location.
-- To deploy without `--reload` remove the flag and run behind a process manager.
+Remarques
+- L'application détecte CUDA et choisit le device automatiquement. Modifiez `device` dans `main.py` pour forcer CPU ou GPU.
+- Si le dossier du modèle est volumineux, gardez-le hors de Git et pointez `MODEL_PATH` vers un emplacement externe.
+- Pour un déploiement sans `--reload`, retirez l'option et exécutez l'application derrière un gestionnaire de processus.
 
-If you want, I can add a `requirements.txt` and a one-line systemd/service example.
+Si vous voulez, je peux aussi ajouter un `requirements.txt` et un exemple de service système.
