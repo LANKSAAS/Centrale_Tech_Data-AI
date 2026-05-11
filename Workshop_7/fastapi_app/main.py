@@ -11,10 +11,13 @@ BASE = os.path.dirname(__file__)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE, "static")), name="static")
 templates = Jinja2Templates(directory=os.path.join(BASE, "templates"))
 
+# Modèle local chargé depuis le dossier assets.
 MODEL_PATH = os.path.join(BASE, "assets", "gemma-3-1b-it")
+# GPU si disponible, sinon CPU.
 device = 0 if torch.cuda.is_available() else -1
 torch_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
 
+# Le pipeline utilise le modèle déjà présent en local ou dans le cache HF.
 pipe = pipeline("text-generation", model=MODEL_PATH, device=device, torch_dtype=torch_dtype)
 
 
@@ -28,6 +31,7 @@ async def ask(request: Request, prompt: str = Form("")):
     prompt = (prompt or "").strip()
     resultat = None
     if prompt:
+        # Format chat simple pour un modèle de génération de texte.
         messages = [{"role": "user", "content": prompt}]
         output = pipe(messages, max_new_tokens=300)
         try:
