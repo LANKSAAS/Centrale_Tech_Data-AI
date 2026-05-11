@@ -33,7 +33,7 @@ HF_TOKEN=hf_votre_token
 Structure de l'application
 - `main.py` : application FastAPI, montage de `/static`, rendu des templates et chargement du modèle depuis `assets/gemma-3-1b-it`.
 - `templates/index.html` : page unique avec formulaire et affichage du résultat.
-- `static/style.css` : styles copiés depuis l'ancienne application.
+- `static/style.css` : styles de application.
 - `assets/` : dossier attendu pour le modèle, non versionné ici.
 
 Remarques
