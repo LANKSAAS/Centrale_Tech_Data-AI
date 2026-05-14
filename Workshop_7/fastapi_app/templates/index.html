@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assistant IA Local</title>
+    <title>Assistant IA Local de Dany</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <header>
-        <h1>Assistant IA Local</h1>
+        <h1>Assistant IA Local de Dany</h1>
         <p class="subtitle">Propulsé par Gemma 3 1B — Google DeepMind</p>
     </header>
 
@@ -28,7 +28,7 @@
 
         <div class="panel result-panel">
             <h2>Résultat</h2>
-            <div class="result-box">
+            <div class="result-box" id="result-box">
                 {% if resultat %}
                     <p>{{ resultat }}</p>
                 {% else %}
@@ -37,5 +37,19 @@
             </div>
         </div>
     </main>
+
+    <script>
+        document.querySelector('form').addEventListener('submit', function () {
+            const box = document.getElementById('result-box');
+            const btn = document.querySelector('.btn-submit');
+            box.innerHTML = '<p class="generating">Génération en cours<span class="dots"></span></p>';
+            btn.disabled = true;
+            btn.textContent = 'Génération en cours...';
+            let count = 0;
+            setInterval(function () {
+                document.querySelector('.dots').textContent = '.'.repeat((++count % 3) + 1);
+            }, 400);
+        });
+    </script>
 </body>
 </html>
