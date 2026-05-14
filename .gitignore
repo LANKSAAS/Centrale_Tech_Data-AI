@@ -19,6 +19,7 @@
 /Workshop_6/use_network/data/
 
 /Workshop_7/.claude/
+/Workshop_7/fastapi_app/assets/gemma-3-1b-it
 /Workshop_8
 # Fichiers Python compilés
 __pycache__/
