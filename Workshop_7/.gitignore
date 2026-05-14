@@ -2,7 +2,8 @@
 flask_app/assets/gemma-3-1b-it/
 
 # Model weights — never push to the hub
-fastapi_app/assets/
+fastapi_app/assets/*
+!fastapi_app/assets/.gitkeep
 *.bin
 *.safetensors
 *.gguf
