@@ -20,7 +20,8 @@
 
 /Workshop_7/.claude/
 /Workshop_7/fastapi_app/assets/gemma-3-1b-it
-/Workshop_8
+/Workshop_8/OPENWEBUI.md
+/Workshop_8/
 # Fichiers Python compilés
 __pycache__/
 *.py[cod]
